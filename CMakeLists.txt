@@ -25,7 +25,8 @@
 #
 #
 #==============================================================================
-cmake_minimum_required(VERSION 2.8.9)
+cmake_minimum_required(VERSION 3.10.0)
+include(FetchContent)
 
 if(NOT CMAKE_BUILD_TYPE)
   set(CMAKE_BUILD_TYPE "Debug" CACHE STRING
@@ -48,9 +49,7 @@ message(STATUS ${CMAKE_MODULE_PATH})
 if(WIN32)
     #don't know yet what to put here
 else()
-    if(NOT CMAKE_INSTALL_PREFIX)
-        set(CMAKE_INSTALL_PREFIX "/usr/local")
-    endif()
+    set(CMAKE_INSTALL_PREFIX "${PROJECT_SOURCE_DIR}/dist")
     #load module for GNU/Linux default installation directories
     include(GNUInstallDirs)
 endif()
@@ -70,28 +69,38 @@ set (NXVERSINFO '1:0:0')
 
 include(FindPkgConfig)
 
+FetchContent_Declare(
+  libhdf5
+  URL https://github.com/usnistgov/libhdf5-wasm/releases/download/v0.1.1/libhdf5-1_12_1-wasm.tar.gz
+  URL_HASH SHA256=e9bb11d89c4f26fa79b9cf1dab6159640c7b184ebf00dc97b098cd4f6de49bfe
+)
+FetchContent_MakeAvailable(libhdf5)
+
+# add libxml2 dependency that was previously built:
+set (LIBXML2_INCLUDE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/libxml2/dist/include/libxml2)
+set (LIBXML2_LIBRARY ${CMAKE_CURRENT_SOURCE_DIR}/libxml2/dist/lib/libxml2.a)
+add_link_options(-sNODERAWFS=1 -sFORCE_FILESYSTEM=1)
 #----------------------------------------------------------------
 # Dependencies
 #----------------------------------------------------------------
-find_package(HDF5 REQUIRED COMPONENTS CXX HL)
+# find_package(HDF5 REQUIRED COMPONENTS HL)
 find_package(LibXml2)
 
 #--------------------------------------------------------------
 # Our own stuff, really....
 #-------------------------------------------------------------
+
+include_directories(include ${libhdf5_SOURCE_DIR}/include ${LIBXML2_INCLUDE_DIR})
 add_subdirectory(include)
 add_subdirectory(src)
-add_subdirectory(test)
-include_directories(include)
+#add_subdirectory(test)
 
 link_directories(${HDF5_LIBRARY_DIRS} )
 
 add_executable (nxvalidate nxvmain.c)
 
 
-
-target_link_libraries(nxvalidate NXV_Static_Library
-  ${HDF5_LIBRARIES} ${HDF5_HL_LIBRARIES} ${LIBXML2_LIBRARIES} )
+target_link_libraries(nxvalidate hdf5-wasm ${LIBXML2_LIBRARIES} NXV_Static_Library z)
 
 install (TARGETS nxvalidate
          DESTINATION ${CMAKE_INSTALL_BINDIR} COMPONENT Runtime)
